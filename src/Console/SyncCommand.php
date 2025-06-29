@@ -21,6 +21,8 @@ class SyncCommand extends Command
     protected function configure(): void
     {
         $this
+           ->setName('sync')
+            ->setDescription('Process .syn and .syn.php files with macro definitions')
             ->addArgument(
                 'input',
                 InputArgument::REQUIRED,
@@ -43,12 +45,6 @@ class SyncCommand extends Command
                 'f',
                 InputOption::VALUE_REQUIRED,
                 'Specific macro file to use'
-            )
-            ->addOption(
-                'verbose',
-                'v',
-                InputOption::VALUE_NONE,
-                'Verbose output'
             )
             ->addOption(
                 'preserve-line-numbers',

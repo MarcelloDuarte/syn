@@ -10,6 +10,7 @@
         </testsuite>
         <testsuite name="Integration">
             <directory suffix="Test.php">tests/Integration/php</directory>
+            <directory suffix="Test.php">tests/Integration/Console</directory>
         </testsuite>
     </testsuites>
     <source>
