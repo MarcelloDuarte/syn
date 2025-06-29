@@ -1,0 +1,20 @@
+# Example Syn macro definitions
+# This file demonstrates the macro DSL syntax
+
+# Simple replacement macro
+$(macro) { $ } >> { $this }
+
+# Conditional logic macro
+$(macro) { unless ($(layer() as condition)) { $(layer() as body) } } >> { if (!($(condition))) { $(body) } }
+
+# Variable swapping macro
+$(macro) { __swap($(T_VARIABLE as a), $(T_VARIABLE as b)) } >> { (list($(a), $(b)) = [$(b), $(a)]) }
+
+# Enum-like macro
+$(macro) { enum $(T_STRING as name) { $(ls(label() as field, token(',')) as fields) } } >> { class $(name) { $(fields ... { const $(field) = '$(field)'; }) } }
+
+# Debug macro
+$(macro) { __debug($(layer() as expression)) } >> { var_dump($(expression)); }
+
+# Assert macro
+$(macro) { __assert($(layer() as condition), $(T_CONSTANT_ENCAPSED_STRING as message)) } >> { if (!($(condition))) { throw new AssertionError($(message)); } } 

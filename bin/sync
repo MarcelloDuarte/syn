@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Syn PHP Preprocessor CLI Tool
+ * 
+ * This tool processes .syn and .syn.php files using macro definitions
+ * and outputs valid PHP code.
+ * 
+ * Usage:
+ *   sync input.syn.php --out=output.php
+ *   sync src/ --macro-dir=macros/ --out=compiled/
+ */
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use Syn\Console\SyncCommand;
+use Symfony\Component\Console\Application;
+
+$application = new Application('sync', '1.0.0');
+$application->add(new SyncCommand());
+$application->run(); 
