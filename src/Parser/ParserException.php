@@ -47,9 +47,9 @@ class ParserException extends \Exception
             $message = "File: {$this->sourceFile} - " . $message;
         }
         
-        if ($this->sourceLine) {
+        if ($this->sourceLine !== null) {
             $message .= " (line {$this->sourceLine}";
-            if ($this->sourceColumn) {
+            if ($this->sourceColumn !== null) {
                 $message .= ", column {$this->sourceColumn}";
             }
             $message .= ")";

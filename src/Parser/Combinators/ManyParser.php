@@ -27,6 +27,11 @@ class ManyParser extends ParserCombinator
                 break;
             }
             
+            // Prevent infinite loops - if position doesn't advance, stop
+            if ($result->getPosition() <= $currentPosition) {
+                break;
+            }
+            
             $values[] = $result->getValue();
             $currentPosition = $result->getPosition();
         }
