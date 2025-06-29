@@ -445,6 +445,14 @@ __debug($var);
 2. **Replacement conflicts**: Multiple macros match same pattern
 3. **Invalid syntax**: Generated code is not valid PHP
 
+---
+
+## Navigation
+
+- **Previous:** [Macro System](../concepts/macro-system.md)
+- **Next:** [Advanced Macros](advanced-macros.md)
+- **Index:** [Documentation Index](../index.md)
+
 ## See Also
 
 - [Advanced Macros](advanced-macros.md)

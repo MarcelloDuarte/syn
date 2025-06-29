@@ -422,6 +422,14 @@ $(macro) {
 $(macro) { $(layer() as left) |> $(layer() as right) } >> { ($(right))($(left)) }
 ```
 
+---
+
+## Navigation
+
+- **Previous:** [Parser Combinators](parser-combinators.md)
+- **Next:** [Simple Macros](../examples/simple-macros.md)
+- **Index:** [Documentation Index](../index.md)
+
 ## See Also
 
 - [Parser Combinators](parser-combinators.md)
