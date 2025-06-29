@@ -35,7 +35,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Syn\\Tests\\": "tests/"
+            "Syn\\Tests\\": "tests/",
+            "Syn\\Tests\\Integration\\": "tests/Integration/php/"
         }
     },
     "bin": [

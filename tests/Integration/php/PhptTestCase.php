@@ -122,7 +122,7 @@ abstract class PhptTestCase extends TestCase
         $this->config = new Configuration();
         
         // Create a temporary macro file
-        $tempFile = tempnam(sys_get_temp_dir(), 'syn_macro_');
+        $tempFile = tempnam(sys_get_temp_dir(), 'syn_macro_') . '.syn';
         file_put_contents($tempFile, $macros);
         
         $this->config->addMacroFile($tempFile);

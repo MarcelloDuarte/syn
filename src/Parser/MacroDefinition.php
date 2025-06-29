@@ -145,10 +145,7 @@ class MacroDefinition
         $pattern = $this->pattern;
         $captureIndex = 0;
         
-        // Handle the specific case of balanced braces and parentheses
-        // For the unless pattern: unless ($(layer() as condition)) { $(layer() as body) }
-        
-        // First, let's handle this more carefully by finding capture patterns
+        // Replace capture patterns with placeholders
         $pattern = preg_replace_callback(
             '/\$\(layer\(\)\s+as\s+(\w+)\)/',
             function($matches) use (&$captureIndex) {
@@ -161,52 +158,46 @@ class MacroDefinition
             $pattern
         );
         
-        // For the unless pattern, we need to handle it as a special case
-        // because PHP's tokenizer can't handle the capture placeholders properly
-        if (str_contains($pattern, 'unless')) {
-            // Manual parsing for unless pattern
-            $this->parsedPattern = $this->parseUnlessPattern($pattern);
-        } else {
-            // Tokenize the modified pattern for other cases
-            if (!empty($pattern)) {
-                $phpCode = '<?php ' . $pattern;
-                $tokens = token_get_all($phpCode);
-                
-                // Remove the opening tag and convert to simple format
-                foreach ($tokens as $token) {
-                    if (is_array($token)) {
-                        // Skip T_OPEN_TAG
-                        if ($token[0] === T_OPEN_TAG) {
-                            continue;
-                        }
-                        $this->parsedPattern[] = $token[1];
-                    } else {
-                        $this->parsedPattern[] = $token;
-                    }
-                }
-            }
-        }
+        // Tokenize the modified pattern generically
+        $this->parsedPattern = $this->tokenizeGeneric($pattern);
     }
     
-    private function parseUnlessPattern(string $pattern): array
+    private function tokenizeGeneric(string $input): array
     {
-        // For pattern: unless (__CAPTURE_0__) { __CAPTURE_1__ }
-        // We want: ['unless', '(', '__CAPTURE_0__', ')', '{', '__CAPTURE_1__', '}']
-        
+        // Generic tokenizer that handles capture placeholders and delimiters
         $tokens = [];
         $i = 0;
-        $len = strlen($pattern);
+        $len = strlen($input);
         $currentToken = '';
         
         while ($i < $len) {
-            $char = $pattern[$i];
+            $char = $input[$i];
             
-            if (in_array($char, ['(', ')', '{', '}', ' '])) {
+            // Check for capture placeholders
+            if ($char === '_' && substr($input, $i, 10) === '__CAPTURE_') {
+                // Save current token if any
                 if (!empty($currentToken)) {
                     $tokens[] = trim($currentToken);
                     $currentToken = '';
                 }
-                if ($char !== ' ') {
+                
+                // Find the end of the capture placeholder
+                $endPos = strpos($input, '__', $i + 10);
+                if ($endPos !== false) {
+                    $captureToken = substr($input, $i, $endPos - $i + 2);
+                    $tokens[] = $captureToken;
+                    $i = $endPos + 2;
+                    continue;
+                }
+            }
+            
+            // Handle delimiters and whitespace
+            if (in_array($char, ['(', ')', '{', '}', '[', ']', ' ', "\t", "\n"])) {
+                if (!empty($currentToken)) {
+                    $tokens[] = trim($currentToken);
+                    $currentToken = '';
+                }
+                if (!in_array($char, [' ', "\t", "\n"])) {
                     $tokens[] = $char;
                 }
             } else {

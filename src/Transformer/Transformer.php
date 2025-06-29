@@ -67,10 +67,14 @@ class Transformer
                         $singleTokenMacros = $this->macroLoader->findMacrosForToken($token);
                         // Convert to new format
                         foreach ($singleTokenMacros as $singleMacro) {
+                            // Calculate the correct number of tokens to consume
+                            $patternTokens = $this->macroLoader->tokenizePattern($singleMacro->getPattern());
+                            $consumedCount = count($patternTokens);
+                            
                             $matchingMacros[] = [
                                 'macro' => $singleMacro,
                                 'captures' => [],
-                                'consumed' => 1
+                                'consumed' => $consumedCount
                             ];
                         }
                     }
@@ -117,10 +121,7 @@ class Transformer
 
     private function applyMacroWithCaptures($macro, array $captures): ?array
     {
-        // Special handling for unless macro
-        if (str_contains($macro->getPattern(), 'unless')) {
-            return $this->generateUnlessReplacement($captures);
-        } elseif ($macro->hasCaptures()) {
+        if ($macro->hasCaptures()) {
             return $this->generateReplacementWithCaptures($macro, $captures);
         } else {
             // Use the old logic for simple replacements
@@ -129,67 +130,61 @@ class Transformer
         }
     }
 
-    private function generateUnlessReplacement(array $captures): array
-    {
-        // Transform: unless (condition) { body }
-        // To: if (!(condition)) { body }
-        
-        $result = [];
-        
-        // Add 'if' as a proper token
-        $result[] = [T_IF, 'if', 1];
-        
-        // Add space as a proper token
-        $result[] = [T_WHITESPACE, ' ', 1];
-        
-        // Add opening parenthesis
-        $result[] = '(';
-        
-        // Add negation
-        $result[] = '!';
-        
-        // Add condition wrapped in parentheses
-        $result[] = '(';
-        foreach ($captures['condition'] as $token) {
-            $result[] = $token;
-        }
-        $result[] = ')';
-        
-        // Close the if condition
-        $result[] = ')';
-        
-        // Add space
-        $result[] = [T_WHITESPACE, ' ', 1];
-        
-        // Add opening brace
-        $result[] = '{';
-        
-        // Add body
-        foreach ($captures['body'] as $token) {
-            $result[] = $token;
-        }
-        
-        // Add closing brace
-        $result[] = '}';
-        
-        return $result;
-    }
-
     private function generateReplacementWithCaptures($macro, array $captures): array
     {
         $parsedReplacement = $macro->getParsedReplacement();
         $result = [];
         
-        foreach ($parsedReplacement as $token) {
-            if (is_string($token) && str_starts_with($token, '__VAR_')) {
-                // Extract variable name
+        for ($i = 0; $i < count($parsedReplacement); $i++) {
+            $token = $parsedReplacement[$i];
+            
+            if (is_string($token) && str_starts_with($token, '__VAR_') && str_ends_with($token, '__')) {
+                // Extract variable name: __VAR_condition__ -> condition
                 $varName = substr($token, 6, -2); // Remove __VAR_ and __
                 
                 if (isset($captures[$varName])) {
+                    $capturedTokens = $captures[$varName];
+                    
+                    // Check if the captured tokens start with whitespace
+                    $startsWithWhitespace = false;
+                    if (!empty($capturedTokens)) {
+                        $firstToken = $capturedTokens[0];
+                        if (is_array($firstToken) && $firstToken[0] === T_WHITESPACE) {
+                            $startsWithWhitespace = true;
+                        }
+                    }
+                    
+                    // If captured tokens start with whitespace, remove preceding space from result
+                    if ($startsWithWhitespace && !empty($result)) {
+                        $lastToken = end($result);
+                        if ($lastToken === ' ') {
+                            array_pop($result);
+                        }
+                    }
+                    
                     // Insert captured tokens
-                    $result = array_merge($result, $captures[$varName]);
+                    foreach ($capturedTokens as $capturedToken) {
+                        $result[] = $capturedToken;
+                    }
+                    
+                    // Check if the captured tokens end with whitespace and next token is a space
+                    $endsWithWhitespace = false;
+                    if (!empty($capturedTokens)) {
+                        $lastToken = end($capturedTokens);
+                        if (is_array($lastToken) && $lastToken[0] === T_WHITESPACE) {
+                            $endsWithWhitespace = true;
+                        }
+                    }
+                    
+                    // If captured tokens end with whitespace, check if next token is a space and skip it
+                    if ($endsWithWhitespace && $i + 1 < count($parsedReplacement)) {
+                        $nextToken = $parsedReplacement[$i + 1];
+                        if ($nextToken === ' ') {
+                            $i++; // Skip the next space token
+                        }
+                    }
                 } else {
-                    // Variable not found, keep as is (shouldn't happen)
+                    // Variable not found, keep as is (shouldn't happen in normal cases)
                     $result[] = $token;
                 }
             } else {

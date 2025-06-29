@@ -206,18 +206,35 @@ class MacroLoader
     {
         $matchingMacros = [];
         
+        // First check if there's a token at this position
+        if ($position >= count($tokens)) {
+            return $matchingMacros;
+        }
+        
+        $currentToken = $tokens[$position];
+        $currentTokenStr = is_array($currentToken) ? $currentToken[1] : $currentToken;
+        
         foreach ($this->macros as $macro) {
-            // Special handling for unless macro
-            if (str_contains($macro->getPattern(), 'unless')) {
-                $matchResult = $this->matchUnlessMacro($macro, $tokens, $position);
-                if ($matchResult !== null) {
-                    $matchingMacros[] = [
-                        'macro' => $macro,
-                        'captures' => $matchResult['captures'],
-                        'consumed' => $matchResult['consumed']
-                    ];
-                }
-            } elseif ($macro->hasCaptures()) {
+            // Only try to match if the first token of the pattern matches the current token
+            $patternTokens = [];
+            if ($macro->hasCaptures()) {
+                $patternTokens = $macro->getParsedPattern();
+            } else {
+                $patternTokens = $this->tokenizePattern($macro->getPattern());
+            }
+            
+            if (empty($patternTokens)) {
+                continue;
+            }
+            
+            $firstPatternToken = $patternTokens[0];
+            
+            // Skip if the first token doesn't match
+            if (!$this->tokensMatch($firstPatternToken, $currentToken)) {
+                continue;
+            }
+            
+            if ($macro->hasCaptures()) {
                 $matchResult = $this->matchPatternWithCaptures($macro, $tokens, $position);
                 if ($matchResult !== null) {
                     $matchingMacros[] = [
@@ -228,10 +245,11 @@ class MacroLoader
                 }
             } else {
                 if ($this->macroMatchesTokenSequence($macro, $tokens, $position)) {
+                    $patternTokens = $this->tokenizePattern($macro->getPattern());
                     $matchingMacros[] = [
                         'macro' => $macro,
                         'captures' => [],
-                        'consumed' => count($this->tokenizePattern($macro->getPattern()))
+                        'consumed' => count($patternTokens)
                     ];
                 }
             }
@@ -277,7 +295,7 @@ class MacroLoader
         $currentPos = $position;
         $patternPos = 0;
         
-        while ($patternPos < count($parsedPattern)) {
+        while ($patternPos < count($parsedPattern) && $currentPos < count($tokens)) {
             $patternToken = $parsedPattern[$patternPos];
             
             // Check if this is a capture placeholder
@@ -289,19 +307,30 @@ class MacroLoader
                 $captureTokens = [];
                 
                 if ($nextPatternPos < count($parsedPattern)) {
-                    // Look for the next non-capture token in the pattern
                     $nextPatternToken = $parsedPattern[$nextPatternPos];
                     
-                    // For balanced constructs like parentheses and braces, we need special handling
-                    if ($patternToken === '__CAPTURE_0__' && $nextPatternToken === ')') {
-                        // This is the condition capture - find balanced parentheses
-                        $captureTokens = $this->captureBalanced($tokens, $currentPos, '(', ')');
+                    // Handle balanced constructs generically
+                    if ($this->isClosingDelimiter($nextPatternToken)) {
+                        // We're capturing everything until the closing delimiter
+                        // For balanced constructs, we want to capture ALL tokens including whitespace
+                        $captureTokens = $this->captureUntilClosing($tokens, $currentPos, $nextPatternToken);
                         $currentPos += count($captureTokens);
-                    } elseif ($patternToken === '__CAPTURE_1__' && $nextPatternToken === '}') {
-                        // This is the body capture - find balanced braces
-                        $captureTokens = $this->captureBalanced($tokens, $currentPos, '{', '}');
-                        $currentPos += count($captureTokens);
+                        
+                        // Skip to the closing delimiter
+                        while ($currentPos < count($tokens)) {
+                            $currentToken = $tokens[$currentPos];
+                            $currentTokenStr = is_array($currentToken) ? $currentToken[1] : $currentToken;
+                            if ($currentTokenStr === $nextPatternToken) {
+                                break;
+                            }
+                            $currentPos++;
+                        }
                     } else {
+                        // For non-balanced captures, skip whitespace first
+                        while ($currentPos < count($tokens) && $this->isWhitespace($tokens[$currentPos])) {
+                            $currentPos++;
+                        }
+                        
                         // Capture tokens until we find the next pattern token
                         while ($currentPos < count($tokens)) {
                             $currentToken = $tokens[$currentPos];
@@ -326,12 +355,19 @@ class MacroLoader
                 $capturedValues[$captureName] = $captureTokens;
                 $patternPos++;
             } else {
+                // Skip whitespace tokens in the input unless the pattern explicitly expects whitespace
+                while ($currentPos < count($tokens) && $this->isWhitespace($tokens[$currentPos]) && $patternToken !== ' ') {
+                    $currentPos++;
+                }
+                
                 // Regular token matching
                 if ($currentPos >= count($tokens)) {
                     return null; // Not enough tokens
                 }
                 
                 $currentToken = $tokens[$currentPos];
+                $currentTokenStr = is_array($currentToken) ? $currentToken[1] : $currentToken;
+                
                 if (!$this->tokensMatch($patternToken, $currentToken)) {
                     return null; // Token mismatch
                 }
@@ -341,39 +377,63 @@ class MacroLoader
             }
         }
         
+        // Check if we've matched the entire pattern
+        if ($patternPos < count($parsedPattern)) {
+            return null; // Pattern not fully matched
+        }
+        
         return [
             'captures' => $capturedValues,
             'consumed' => $currentPos - $position
         ];
     }
     
-    private function captureBalanced(array $tokens, int $start, string $openChar, string $closeChar): array
+    private function isClosingDelimiter(string $token): bool
+    {
+        return in_array($token, [')', '}', ']']);
+    }
+    
+    private function captureUntilClosing(array $tokens, int $start, string $closeChar): array
     {
         $captured = [];
+        $openChar = $this->getOpeningDelimiter($closeChar);
         $depth = 0;
-        $pos = $start;
+        $i = $start;
         
-        while ($pos < count($tokens)) {
-            $token = $tokens[$pos];
+        while ($i < count($tokens)) {
+            $token = $tokens[$i];
             $tokenStr = is_array($token) ? $token[1] : $token;
             
             if ($tokenStr === $openChar) {
                 $depth++;
+                $captured[] = $token;
             } elseif ($tokenStr === $closeChar) {
-                $depth--;
                 if ($depth === 0) {
-                    break; // Found the matching close
+                    // Found the matching closing delimiter
+                    break;
+                } else {
+                    $depth--;
+                    $captured[] = $token;
                 }
-            }
-            
-            if ($depth > 0) {
+            } else {
                 $captured[] = $token;
             }
             
-            $pos++;
+            $i++;
         }
         
         return $captured;
+    }
+    
+    private function getOpeningDelimiter(string $closingToken): string
+    {
+        $delimiters = [
+            ')' => '(',
+            '}' => '{',
+            ']' => '['
+        ];
+        
+        return $delimiters[$closingToken] ?? '';
     }
     
     private function tokensToString(array $tokens): string
@@ -389,7 +449,7 @@ class MacroLoader
         return $result;
     }
 
-    private function tokenizePattern(string $pattern): array
+    public function tokenizePattern(string $pattern): array
     {
         // Use PHP's tokenizer to properly tokenize the pattern
         // This ensures we get the same tokens as the actual PHP code
@@ -422,148 +482,6 @@ class MacroLoader
         return false;
     }
 
-    private function matchUnlessMacro(MacroDefinition $macro, array $tokens, int $position): ?array
-    {
-        // Look for pattern: unless ( ... ) { ... }
-        if ($position >= count($tokens)) {
-            return null;
-        }
-        
-        // Check for 'unless' token - must be exact match
-        $currentToken = $tokens[$position];
-        
-        if (is_array($currentToken)) {
-            // Token arrays have [type, value, line] - check the value
-            if ($currentToken[1] !== 'unless') {
-                return null;
-            }
-        } else {
-            // String token
-            if ($currentToken !== 'unless') {
-                return null;
-            }
-        }
-        
-        $pos = $position + 1;
-        
-        // Must have more tokens
-        if ($pos >= count($tokens)) {
-            return null;
-        }
-        
-        // Skip whitespace tokens
-        while ($pos < count($tokens) && $this->isWhitespace($tokens[$pos])) {
-            $pos++;
-        }
-        
-        // Must find opening parenthesis
-        if ($pos >= count($tokens)) {
-            return null;
-        }
-        
-        $nextToken = $tokens[$pos];
-        $nextTokenStr = is_array($nextToken) ? $nextToken[1] : $nextToken;
-        
-        if ($nextTokenStr !== '(') {
-            return null;
-        }
-        
-        $pos++; // Skip '('
-        
-        // Capture condition (everything until matching ')')
-        $conditionTokens = [];
-        $parenDepth = 1;
-        
-        while ($pos < count($tokens) && $parenDepth > 0) {
-            $token = $tokens[$pos];
-            $tokenStr = is_array($token) ? $token[1] : $token;
-            
-            if ($tokenStr === '(') {
-                $parenDepth++;
-            } elseif ($tokenStr === ')') {
-                $parenDepth--;
-            }
-            
-            if ($parenDepth > 0) {
-                $conditionTokens[] = $token;
-            }
-            
-            $pos++;
-        }
-        
-        // Must have found matching parenthesis and condition must not be empty
-        if ($parenDepth > 0 || empty($conditionTokens)) {
-            return null;
-        }
-        
-        // Skip whitespace after condition
-        while ($pos < count($tokens) && $this->isWhitespace($tokens[$pos])) {
-            $pos++;
-        }
-        
-        // Must find opening brace
-        if ($pos >= count($tokens)) {
-            return null;
-        }
-        
-        $braceToken = $tokens[$pos];
-        $braceTokenStr = is_array($braceToken) ? $braceToken[1] : $braceToken;
-        
-        if ($braceTokenStr !== '{') {
-            return null;
-        }
-        
-        $pos++; // Skip '{'
-        
-        // Capture body (everything until matching '}')
-        $bodyTokens = [];
-        $braceDepth = 1;
-        
-        while ($pos < count($tokens) && $braceDepth > 0) {
-            $token = $tokens[$pos];
-            $tokenStr = is_array($token) ? $token[1] : $token;
-            
-            if ($tokenStr === '{') {
-                $braceDepth++;
-            } elseif ($tokenStr === '}') {
-                $braceDepth--;
-            }
-            
-            if ($braceDepth > 0) {
-                $bodyTokens[] = $token;
-            }
-            
-            $pos++;
-        }
-        
-        // Must have found matching brace
-        if ($braceDepth > 0) {
-            return null;
-        }
-        
-        // Additional validation: ensure this looks like a real unless statement
-        // The body should have some content (not just whitespace)
-        $hasNonWhitespaceBody = false;
-        foreach ($bodyTokens as $token) {
-            if (!$this->isWhitespace($token)) {
-                $hasNonWhitespaceBody = true;
-                break;
-            }
-        }
-        
-        if (!$hasNonWhitespaceBody) {
-            return null;
-        }
-        
-        return [
-            'captures' => [
-                'condition' => $conditionTokens,
-                'body' => $bodyTokens
-            ],
-            'consumed' => $pos - $position
-        ];
-    }
-    
     private function isWhitespace($token): bool
     {
         if (is_array($token)) {

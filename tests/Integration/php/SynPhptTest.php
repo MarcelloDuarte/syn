@@ -16,7 +16,7 @@ class SynPhptTest extends PhptTestCase
 
     public static function phptFileProvider(): array
     {
-        $phptDir = __DIR__ . '/phpt';
+        $phptDir = __DIR__ . '/../phpt';
         $tests = [];
 
         if (is_dir($phptDir)) {
@@ -32,19 +32,19 @@ class SynPhptTest extends PhptTestCase
 
     public function testSimpleMacroReplacement(): void
     {
-        $phptFile = __DIR__ . '/phpt/simple_macro.phpt';
+        $phptFile = __DIR__ . '/../phpt/simple_macro.phpt';
         $this->runPhptTest($phptFile);
     }
 
     public function testUnlessMacro(): void
     {
-        $phptFile = __DIR__ . '/phpt/unless_macro.phpt';
+        $phptFile = __DIR__ . '/../phpt/unless_macro.phpt';
         $this->runPhptTest($phptFile);
     }
 
     public function testGenericMacros(): void
     {
-        $phptFile = __DIR__ . '/phpt/generic_macros.phpt';
+        $phptFile = __DIR__ . '/../phpt/generic_macros.phpt';
         $this->runPhptTest($phptFile);
     }
 } 
