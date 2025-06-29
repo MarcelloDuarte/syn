@@ -394,6 +394,14 @@ $result = $data |> array_filter |> array_values;
 $result = (array_values)((array_filter)($data));
 ```
 
+---
+
+## Navigation
+
+- **Previous:** [Getting Started](getting-started.md)
+- **Next:** [CLI Reference](cli.md)
+- **Index:** [Documentation Index](index.md)
+
 ## See Also
 
 - [Parser Combinators](concepts/parser-combinators.md)

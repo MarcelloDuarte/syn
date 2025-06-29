@@ -319,4 +319,12 @@ Create `.vscode/tasks.json`:
 
 - [GitHub Issues](https://github.com/marcelloduarte/syn/issues)
 - [Documentation](index.md)
-- [Examples](examples/) 
+- [Examples](examples/)
+
+---
+
+## Navigation
+
+- **Previous:** [Documentation Index](index.md)
+- **Next:** [Macro DSL Reference](macro-dsl.md)
+- **Index:** [Documentation Index](index.md) 

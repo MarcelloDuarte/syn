@@ -457,6 +457,14 @@ class SynParser
 }
 ```
 
+---
+
+## Navigation
+
+- **Previous:** [CLI Reference](../cli.md)
+- **Next:** [Macro System](macro-system.md)
+- **Index:** [Documentation Index](../index.md)
+
 ## See Also
 
 - [Macro System](macro-system.md)

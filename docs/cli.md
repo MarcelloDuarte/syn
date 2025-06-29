@@ -432,6 +432,14 @@ sync src/ --macro-dir=macros/ --out=compiled/ --flatten
 - Process files in smaller batches
 - Optimize macro complexity
 
+---
+
+## Navigation
+
+- **Previous:** [Macro DSL Reference](macro-dsl.md)
+- **Next:** [Parser Combinators](concepts/parser-combinators.md)
+- **Index:** [Documentation Index](index.md)
+
 ## See Also
 
 - [Getting Started](getting-started.md)
