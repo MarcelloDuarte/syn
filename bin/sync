@@ -18,5 +18,7 @@ use Syn\Console\SyncCommand;
 use Symfony\Component\Console\Application;
 
 $application = new Application('sync', '1.0.0');
-$application->add(new SyncCommand());
+$syncCommand = new SyncCommand();
+$application->add($syncCommand);
+$application->setDefaultCommand($syncCommand->getName(), true);
 $application->run(); 
