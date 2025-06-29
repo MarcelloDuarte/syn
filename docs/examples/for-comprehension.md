@@ -228,6 +228,14 @@ Common PHP libraries that support this pattern:
 - Nested comprehensions need careful parenthesization
 - Variable scoping is determined lexically, not dynamically
 
+---
+
+## Navigation
+
+- **Previous:** [Advanced Macros](advanced-macros.md)
+- **Next:** [Real-World Examples](real-world.md)
+- **Index:** [Documentation Index](../index.md)
+
 ## See Also
 
 - [Advanced Macros](advanced-macros.md) - More complex macro examples
